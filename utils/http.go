@@ -10,6 +10,12 @@ import (
 	"github.com/izacgaldino23/binance-consult-trade-api/config"
 )
 
+type Request struct {
+	URL    URL
+	Params *ParamList
+	Query  *ParamList
+}
+
 type Param struct {
 	Key   string
 	Value string
@@ -42,19 +48,29 @@ func (p *ParamList) AddParam(key, value string) *ParamList {
 func (u *URL) parseParams(params *ParamList) (newURL string) {
 	newURL = string(*u)
 
-	for i := range *params {
-		var keyInURL = fmt.Sprintf("{%v}", (*params)[i].Key)
+	if params != nil {
+		for i := range *params {
+			var keyInURL = fmt.Sprintf("{%v}", (*params)[i].Key)
 
-		newURL = strings.Replace(newURL, keyInURL, (*params)[i].Value, 1)
+			newURL = strings.Replace(newURL, keyInURL, (*params)[i].Value, 1)
+		}
 	}
 
 	return
 }
 
-func Get(url URL, params *ParamList, query *ParamList) (body []byte, statusCode int, err error) {
-	finalURL := config.Environment.BinanceEndpoint + url.parseParams(params) + query.ToQuery()
+func (r *Request) generateFinalURL() string {
+	finalUrl := config.Environment.BinanceEndpoint + r.URL.parseParams(r.Params)
 
-	fmt.Println(finalURL)
+	if r.Query != nil {
+		finalUrl += r.Query.ToQuery()
+	}
+
+	return finalUrl
+}
+
+func Get(req Request) (body []byte, statusCode int, err error) {
+	finalURL := req.generateFinalURL()
 
 	res, err := http.Get(finalURL)
 	if err != nil {

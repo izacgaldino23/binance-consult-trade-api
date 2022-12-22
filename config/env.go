@@ -9,6 +9,8 @@ import (
 
 type Config struct {
 	BinanceEndpoint string `name:"BINANCE_ENDPOINT"`
+	APIKey          string `name:"API_KEY"`
+	APISecret       string `name:"API_SECRET"`
 }
 
 var Environment Config

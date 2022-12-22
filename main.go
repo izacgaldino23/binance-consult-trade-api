@@ -8,10 +8,7 @@ import (
 	"github.com/izacgaldino23/binance-consult-trade-api/utils"
 )
 
-const (
-	API_KEY    = "5288aVerH00ezxl7bvtB0bdNqfqnBkDuL2OnZs6E42NijebgeLuDXwdSKEiU8NCk"
-	SECRET_KEY = "nxMiP7rUa7MmfFnlJcRcx74nw0YSiFBLas3G3gvTYOrfEx5SpxuqvRk8J9uMoPh9"
-)
+const ()
 
 func main() {
 	// LOAD ENVIRONMENT
@@ -20,7 +17,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	_, status, err := utils.Get("/v3/ping", &utils.ParamList{}, &utils.ParamList{})
+	req := utils.Request{
+		URL: "/v3/ping",
+	}
+
+	_, status, err := utils.Get(req)
 	if err != nil {
 		log.Fatal(err)
 	}
