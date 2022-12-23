@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,6 +17,7 @@ type Request struct {
 	URL    URL
 	Params *ParamList
 	Query  *ParamList
+	Body   map[string]interface{}
 }
 
 type Param struct {
@@ -69,10 +73,55 @@ func (r *Request) generateFinalURL() string {
 	return finalUrl
 }
 
+func (r *Request) getParsedBody() (io.Reader, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+
+	encoded, err := json.Marshal(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(encoded), nil
+}
+
 func Get(req Request) (body []byte, statusCode int, err error) {
 	finalURL := req.generateFinalURL()
 
 	res, err := http.Get(finalURL)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	body, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	statusCode = res.StatusCode
+
+	return
+}
+
+func Post(req *Request) (body []byte, statusCode int, err error) {
+	finalURL := req.generateFinalURL()
+
+	parsedBody, err := req.getParsedBody()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	newReq, err := http.NewRequest("POST", finalURL, parsedBody)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	newReq.Header.Set("X-MBX-APIKEY", config.Environment.APIKey)
+
+	client := http.Client{}
+
+	res, err := client.Do(newReq)
 	if err != nil {
 		return nil, 0, err
 	}

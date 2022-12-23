@@ -1,14 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"net/http"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/izacgaldino23/binance-consult-trade-api/binance"
 	"github.com/izacgaldino23/binance-consult-trade-api/config"
-	"github.com/izacgaldino23/binance-consult-trade-api/utils"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
-const ()
+func init() { log.SetFlags(log.Lshortfile | log.LstdFlags) }
 
 func main() {
 	// LOAD ENVIRONMENT
@@ -17,27 +21,80 @@ func main() {
 		log.Fatal(err)
 	}
 
-	req := utils.Request{
-		URL: "/v3/ping",
-	}
+	// Start app route
+	app := fiber.New()
 
-	_, status, err := utils.Get(req)
+	app.Get("/ping", binance.Ping)
+
+	go socket()
+
+	// Listes port 3000 for routes
+	err = app.Listen(":3000")
 	if err != nil {
 		log.Fatal(err)
 	}
+}
 
-	// decode, _ := json.Marshal(res.Body)
+func socket() {
+	listenKey, err := binance.GetListenKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = listenKey
 
-	fmt.Println(status)
+	// conn, _, err := websocket.Dial(context.Background(), fmt.Sprintf("wss://stream.binance.com:9443/ws/%v", listenKey), nil)
+	conn, _, err := websocket.Dial(context.Background(), "wss://stream.binance.com:9443/stream", nil)
+	if err != nil {
+		// body, _ := ioutil.ReadAll(res.Body)
+		// log.Println(string(body))
+		log.Fatal(err)
+	}
+	defer conn.Close(http.StatusOK, "Connection finished")
 
-	// client := binance.NewClient(API_KEY, SECRET_KEY)
+	message := struct {
+		ID     int      `json:"id"`
+		Method string   `json:"method"`
+		Params []string `json:"params"`
+	}{
+		1,
+		"LIST_SUBSCRIPTIONS",
+		[]string{"btcusdt@bookTicker", "bnbbtc@bookTicker"},
+	}
 
-	// permission, err := client.NewAveragePriceService().Do(context.Background())
-	// if err != nil {
-	// 	log.Fatal(err)
+	if err = wsjson.Write(context.Background(), conn, message); err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	for {
+		_, msg, err := conn.Read(context.Background())
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+
+		log.Println(string(msg))
+	}
+
+	// cstDialer := websocket.Dialer{
+	// 	Subprotocols:     []string{"p1", "p2"},
+	// 	ReadBufferSize:   1024,
+	// 	WriteBufferSize:  1024,
+	// 	HandshakeTimeout: 30 * time.Second,
 	// }
 
-	// encoded, _ := json.Marshal(permission)
+	// listenKey, err := binance.GetListenKey()
+	// if err != nil {
+	// 	log.Fatal(err.Error())
+	// }
 
-	// fmt.Println(string(encoded))
+	// conn, response, err := cstDialer.Dial(fmt.Sprintf("wss://stream.binance.com:443/ws/%v", listenKey), http.Header{
+	// 	"X-MBX-APIKEY": []string{config.Environment.APIKey},
+	// })
+	// if err != nil {
+	// 	log.Fatal(err.Error())
+	// }
+	// defer conn.Close()
+
+	// log.Println(response, conn)
 }
