@@ -39,3 +39,24 @@ func Ping(c *fiber.Ctx) error {
 
 	return c.Send(body)
 }
+
+func GetCandle(c *fiber.Ctx) error {
+	req := utils.Request{
+		URL:   "/v3/klines",
+		Query: &utils.QueryParamList{},
+	}
+
+	req.Query.
+		AddParam("interval", "1m").
+		AddParam("limit", "10").
+		AddParam("symbol", "BTCUSDT")
+
+	// req.ParseParams(c)
+
+	body, _, err := utils.Get(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return c.Send(body)
+}

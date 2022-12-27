@@ -10,30 +10,40 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/izacgaldino23/binance-consult-trade-api/config"
 )
 
 type Request struct {
 	URL    URL
-	Params *ParamList
-	Query  *ParamList
+	Params *PathParamList
+	Query  *QueryParamList
 	Body   map[string]interface{}
 }
 
-type Param struct {
+type PathParam struct {
 	Key   string
 	Value string
 }
 
-type ParamList []Param
+type QueryParam struct {
+	Key   string
+	Value []string
+}
+
+type PathParamList []PathParam
+
+type QueryParamList []QueryParam
 
 type URL string
 
-func (p *ParamList) ToQuery() (query string) {
+func (p *QueryParamList) ToQuery() (query string) {
 	params := make([]string, 0)
 
-	for i := range *p {
-		params = append(params, fmt.Sprintf("%v=%v", (*p)[i].Key, (*p)[i].Value))
+	for _, param := range *p {
+		for _, value := range param.Value {
+			params = append(params, fmt.Sprintf("%v=%v", param.Key, value))
+		}
 	}
 
 	if len(params) > 0 {
@@ -43,13 +53,13 @@ func (p *ParamList) ToQuery() (query string) {
 	return
 }
 
-func (p *ParamList) AddParam(key, value string) *ParamList {
-	*p = append(*p, Param{key, value})
+func (p *QueryParamList) AddParam(key, value string) *QueryParamList {
+	*p = append(*p, QueryParam{key, []string{value}})
 
 	return p
 }
 
-func (u *URL) parseParams(params *ParamList) (newURL string) {
+func (u *URL) bindParams(params *PathParamList) (newURL string) {
 	newURL = string(*u)
 
 	if params != nil {
@@ -64,7 +74,7 @@ func (u *URL) parseParams(params *ParamList) (newURL string) {
 }
 
 func (r *Request) generateFinalURL() string {
-	finalUrl := config.Environment.BinanceEndpoint + r.URL.parseParams(r.Params)
+	finalUrl := config.Environment.BinanceEndpoint + r.URL.bindParams(r.Params)
 
 	if r.Query != nil {
 		finalUrl += r.Query.ToQuery()
@@ -86,8 +96,24 @@ func (r *Request) getParsedBody() (io.Reader, error) {
 	return bytes.NewBuffer(encoded), nil
 }
 
+func (r *Request) ParseParams(c *fiber.Ctx) *Request {
+	params := c.AllParams()
+
+	if len(params) > 0 && r.Params == nil {
+		r.Params = &PathParamList{}
+	}
+
+	for i := range params {
+		(*r.Params) = append((*r.Params), PathParam{i, params[i]})
+	}
+
+	return r
+}
+
 func Get(req Request) (body []byte, statusCode int, err error) {
 	finalURL := req.generateFinalURL()
+
+	log.Println(finalURL)
 
 	res, err := http.Get(finalURL)
 	if err != nil {
