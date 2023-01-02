@@ -40,7 +40,7 @@ func Ping(c *fiber.Ctx) error {
 	return c.Send(body)
 }
 
-func GetCandle(c *fiber.Ctx) error {
+func GetCandle(symbol string, limit int64) (candles string, err error) {
 	req := utils.Request{
 		URL:   "/v3/klines",
 		Query: &utils.QueryParamList{},
@@ -48,15 +48,16 @@ func GetCandle(c *fiber.Ctx) error {
 
 	req.Query.
 		AddParam("interval", "1m").
-		AddParam("limit", "10").
-		AddParam("symbol", "BTCUSDT")
-
-	// req.ParseParams(c)
+		AddParam("limit", limit).
+		AddParam("symbol", symbol)
 
 	body, _, err := utils.Get(req)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 
-	return c.Send(body)
+	candles = string(body)
+
+	return
 }

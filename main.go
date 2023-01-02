@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/izacgaldino23/binance-consult-trade-api/binance"
 	"github.com/izacgaldino23/binance-consult-trade-api/config"
+	"github.com/izacgaldino23/binance-consult-trade-api/routines"
 	// "nhooyr.io/websocket"
 )
 
@@ -22,10 +23,12 @@ func main() {
 	app := fiber.New()
 
 	app.Get("/ping", binance.Ping)
-	app.Get("/candle", binance.GetCandle)
+	// app.Get("/candle", binance.GetCandle)
 
 	// go socket()
 	// go binance.SocketStart()
+
+	go routines.CandleWatch()
 
 	// Listes port 3000 for routes
 	err = app.Listen(":3000")

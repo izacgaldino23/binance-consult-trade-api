@@ -2,6 +2,10 @@ package model
 
 import "time"
 
+const (
+	BTCUSDT = "BTCUSDT"
+)
+
 type Candle struct {
 	OpenTime   *time.Time `pos:"0"`
 	CloseTime  *time.Time `pos:"6"`

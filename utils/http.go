@@ -28,7 +28,7 @@ type PathParam struct {
 
 type QueryParam struct {
 	Key   string
-	Value []string
+	Value []any
 }
 
 type PathParamList []PathParam
@@ -36,6 +36,10 @@ type PathParamList []PathParam
 type QueryParamList []QueryParam
 
 type URL string
+
+type Value interface {
+	string | int | int8 | int16 | int32 | int64 | bool | float32 | float64
+}
 
 func (p *QueryParamList) ToQuery() (query string) {
 	params := make([]string, 0)
@@ -53,8 +57,8 @@ func (p *QueryParamList) ToQuery() (query string) {
 	return
 }
 
-func (p *QueryParamList) AddParam(key, value string) *QueryParamList {
-	*p = append(*p, QueryParam{key, []string{value}})
+func (p *QueryParamList) AddParam(key string, value any) *QueryParamList {
+	*p = append(*p, QueryParam{key, []any{value}})
 
 	return p
 }
@@ -112,8 +116,6 @@ func (r *Request) ParseParams(c *fiber.Ctx) *Request {
 
 func Get(req Request) (body []byte, statusCode int, err error) {
 	finalURL := req.generateFinalURL()
-
-	log.Println(finalURL)
 
 	res, err := http.Get(finalURL)
 	if err != nil {
