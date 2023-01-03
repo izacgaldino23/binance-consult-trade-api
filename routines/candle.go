@@ -39,27 +39,27 @@ func CandleWatch() {
 
 func candleUpdate(errChan chan error) {
 	var (
-		result string
-		err    error
+		result  string
+		err     error
+		candles []model.Candle
 	)
 
+	// Get candles from binance
 	result, err = binance.GetCandle(model.BTCUSDT, 10)
 	if err != nil {
 		errChan <- err
 		return
 	}
 
-	if err = convertToStruct(result); err != nil {
+	// convert candles to struct
+	if candles, err = convertToStruct(result); err != nil {
 		errChan <- err
 		return
 	}
 }
 
-func convertToStruct(body string) (err error) {
-	var (
-	// candles = make([]model.Candle, 0)
-	// toArray = make(map[int64][]string)
-	)
+func convertToStruct(body string) (candles []model.Candle, err error) {
+	candles = make([]model.Candle, 0)
 
 	body = strings.Replace(body, "[[", "", -1)
 	body = strings.Replace(body, "]]", "", -1)
@@ -67,7 +67,7 @@ func convertToStruct(body string) (err error) {
 
 	// loop each candle string array
 	for i := range parts {
-		// candle := model.Candle{}
+		candle := model.Candle{}
 		toArray := make([]interface{}, 0)
 		value := fmt.Sprintf("[%v]", parts[i])
 
@@ -75,10 +75,9 @@ func convertToStruct(body string) (err error) {
 			return
 		}
 
-		fmt.Println(value)
+		candle.ArrayToStruct(toArray)
+		candles = append(candles, candle)
 	}
-
-	// fmt.Println(toArray)
 
 	return
 }
