@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/squirrel"
+	_ "github.com/lib/pq"
 )
 
 type Transaction struct {

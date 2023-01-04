@@ -19,6 +19,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// OPEN CONNECTIONS
+	err = config.OpenConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Start app route
 	app := fiber.New()
 
