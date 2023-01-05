@@ -47,7 +47,7 @@ func GetCandle(symbol string, limit, startTime int64) (candles string, err error
 	}
 
 	req.Query.
-		AddParam("interval", "1m").
+		AddParam("interval", "1s").
 		AddParam("limit", limit).
 		AddParam("symbol", symbol).
 		AddParamCond("startTime", startTime, startTime != 0)
