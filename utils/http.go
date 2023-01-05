@@ -63,6 +63,14 @@ func (p *QueryParamList) AddParam(key string, value any) *QueryParamList {
 	return p
 }
 
+func (p *QueryParamList) AddParamCond(key string, value any, cond bool) *QueryParamList {
+	if cond {
+		*p = append(*p, QueryParam{key, []any{value}})
+	}
+
+	return p
+}
+
 func (u *URL) bindParams(params *PathParamList) (newURL string) {
 	newURL = string(*u)
 

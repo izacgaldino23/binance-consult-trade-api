@@ -14,11 +14,13 @@ import (
 )
 
 const (
-	interval = time.Second * 5
+	interval    = time.Second * 5
+	candleLimit = 14
 )
 
 var (
-	errChan = make(chan error, 15)
+	errChan             = make(chan error, 15)
+	lastCandleStartTime int64
 )
 
 func CandleWatch() {
@@ -48,9 +50,14 @@ func candleUpdate(errChan chan error) {
 	)
 
 	// Get candles from binance
-	result, err = binance.GetCandle(symbol, 10)
+	result, err = binance.GetCandle(symbol, candleLimit, lastCandleStartTime)
 	if err != nil {
 		errChan <- err
+		return
+	}
+
+	if result == "[]" {
+		fmt.Println("No new candles to add")
 		return
 	}
 
@@ -104,7 +111,13 @@ func saveCandles(candles []model.Candle) (err error) {
 		if err != nil {
 			return
 		}
+
+		if candles[i].OpenTime.Unix()*1000 > int64(lastCandleStartTime) {
+			lastCandleStartTime = (candles[i].OpenTime.Unix() * 1000) + 1
+		}
 	}
+
+	fmt.Printf("Saved %v candles\n", len(candles))
 
 	if err = tx.Commit(); err != nil {
 		return
