@@ -32,6 +32,11 @@ func OpenConnection() (err error) {
 		return err
 	}
 
+	err = DatabaseConnection.Ping()
+	if err != nil {
+		return err
+	}
+
 	return
 }
 
@@ -52,5 +57,7 @@ func NewTransaction(readOnly bool) (transaction *Transaction, err error) {
 }
 
 func NewBuilder(tx *sql.Tx) squirrel.StatementBuilderType {
-	return squirrel.StatementBuilder.RunWith(tx)
+	return squirrel.StatementBuilder.
+		PlaceholderFormat(squirrel.Dollar).
+		RunWith(tx)
 }

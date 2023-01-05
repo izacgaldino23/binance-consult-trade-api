@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/izacgaldino23/binance-consult-trade-api/binance"
+	"github.com/izacgaldino23/binance-consult-trade-api/config"
 	"github.com/izacgaldino23/binance-consult-trade-api/model"
+	"github.com/izacgaldino23/binance-consult-trade-api/persist"
 )
 
 const (
@@ -42,23 +44,30 @@ func candleUpdate(errChan chan error) {
 		result  string
 		err     error
 		candles []model.Candle
+		symbol  = model.BTCUSDT
 	)
 
 	// Get candles from binance
-	result, err = binance.GetCandle(model.BTCUSDT, 10)
+	result, err = binance.GetCandle(symbol, 10)
 	if err != nil {
 		errChan <- err
 		return
 	}
 
 	// convert candles to struct
-	if candles, err = convertToStruct(result); err != nil {
+	if candles, err = convertToStruct(result, symbol); err != nil {
+		errChan <- err
+		return
+	}
+
+	// Persist candles on database
+	if err = saveCandles(candles); err != nil {
 		errChan <- err
 		return
 	}
 }
 
-func convertToStruct(body string) (candles []model.Candle, err error) {
+func convertToStruct(body, symbol string) (candles []model.Candle, err error) {
 	candles = make([]model.Candle, 0)
 
 	body = strings.Replace(body, "[[", "", -1)
@@ -76,7 +85,29 @@ func convertToStruct(body string) (candles []model.Candle, err error) {
 		}
 
 		candle.ArrayToStruct(toArray)
+		candle.Symbol = symbol
 		candles = append(candles, candle)
+	}
+
+	return
+}
+
+func saveCandles(candles []model.Candle) (err error) {
+	tx, err := config.NewTransaction(false)
+	defer tx.Rollback()
+
+	persist := persist.CandlePS{TX: tx}
+
+	for i := range candles {
+		_, err = persist.AddCandle(&candles[i])
+
+		if err != nil {
+			return
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return
 	}
 
 	return
