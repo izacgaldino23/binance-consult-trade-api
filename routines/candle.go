@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ const (
 
 var (
 	errChan             = make(chan error, 15)
+	RSI                 float64
+	firstInteration     bool
 	lastCandleStartTime int64
 )
 
@@ -124,4 +127,37 @@ func saveCandles(candles []model.Candle) (err error) {
 	}
 
 	return
+}
+
+func calculateIndicatorRSI(candles []model.Candle) {
+	var (
+		prices           = make([]float64, 0)
+		gains            = make([]float64, 0)
+		losses           = make([]float64, 0)
+		avgGain, avgLoss float64
+	)
+
+	// Get prices and gains and losses
+	for i := range candles {
+		price := &candles[i].ClosePrice
+		prices = append(prices, *price)
+
+		if i != 0 {
+			difference := math.Ceil(*price*100) / 100
+
+			if difference > 0 {
+				gains = append(gains, *price)
+				losses = append(losses, 0)
+			} else {
+				losses = append(losses, *price)
+				gains = append(gains, 0)
+			}
+		}
+	}
+
+	if firstInteration {
+		// Calculate avg for gains and losses
+	}
+
+	firstInteration = true
 }
