@@ -1,4 +1,4 @@
-package routines
+package candle
 
 import (
 	"encoding/json"
@@ -45,7 +45,8 @@ func CandleWatch() {
 // 1. Get data from binance
 // 2. Convert to our struct
 // 3. Persist on database
-// 4. Call trade funcs
+// 4. Calculate the indicators
+// 5. Call trade funcs
 
 func candleUpdate(errChan chan error) {
 	var (
@@ -142,14 +143,6 @@ func calculateIndicatorRSI(candles []model.Candle) {
 		avgGain, avgLoss   float64
 		lastGain, lastLoss float64
 	)
-
-	if firstInteration {
-		// output[0] = append(output[0], "price")
-		// output[1] = append(output[1], "gain")
-		// output[2] = append(output[2], "loss")
-		// output[3] = append(output[3], "avg_gain")
-		// output[4] = append(output[4], "avg_loss")
-	}
 
 	// Get prices and gains and losses
 	for i := range candles {
