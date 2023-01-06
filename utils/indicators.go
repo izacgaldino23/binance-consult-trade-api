@@ -93,13 +93,13 @@ func CalculateIndicatorRSI(
 	*RSI = 100 - (100 / (1 + RS))
 	*RSI = math.Ceil(100**RSI) / 100
 	if *lastShowRSI == 0 {
-		lastShowRSI = RSI
+		*lastShowRSI = *RSI
 	}
 
 	// result, _ := json.Marshal(output)
 	// fmt.Println(string(result))
 	if (*lastShowRSI < *RSI && *lastShowRSI+5 <= *RSI) || (*lastShowRSI > *RSI && *lastShowRSI-5 >= *RSI) {
-		fmt.Println(model.BTCUSDT, RSI)
+		fmt.Println(model.BTCUSDT, *RSI)
 		*lastShowRSI = *RSI
 	}
 }
