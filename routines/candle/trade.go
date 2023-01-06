@@ -6,19 +6,23 @@ import (
 	"time"
 
 	"github.com/izacgaldino23/binance-consult-trade-api/model"
+	"github.com/izacgaldino23/binance-consult-trade-api/utils"
 )
 
 var (
-	CashBuyTotal    float64 = 0.002 // BTC
-	CashSoldTotal   float64 = 0     // Dollar
-	BuyPercent              = 50
-	SoldPercent             = 100
-	NumTransactions         = 0
-	Bought                  = false
+	CashBuyTotal                  float64 = 1000 // USD
+	BuyPercent                            = 100
+	SoldPercent                           = 100
+	Bought                                = false
+	sleepTo                       *time.Time
+	boughtPrice                   float64
+	CashSoldTotal                 float64 // BTC
+	NumTransactions, sellAttempts int
 )
 
 const (
-	maxTransactions = 1
+	maxTransactions = 10
+	maxSellAttempts = 3
 )
 
 func BuyActive(price float64) bool {
@@ -27,16 +31,16 @@ func BuyActive(price float64) bool {
 	}
 
 	// Calculate how much i will expand buying
-	buy := CashBuyTotal * float64(BuyPercent) / 100 // BTC
+	buy := CashBuyTotal * float64(BuyPercent) / 100 // USD
 
 	// Calculate how much i will receive
-	newCash := buy * price // Dollar
+	newCash := buy / price // BTC
 
 	// Removing unnecessary decimals
-	newCash = formatNumber(newCash, 2)
+	newCash = formatNumber(newCash, 8)
 
 	// Remove from buy value this cents
-	buy = newCash / price
+	buy = newCash * price
 
 	// Withdraw from our wallet
 	CashBuyTotal -= buy
@@ -44,8 +48,10 @@ func BuyActive(price float64) bool {
 	// Added newCash bought
 	CashSoldTotal += newCash
 
+	boughtPrice = price
+
 	// Logg("BUY ", price)
-	tradeLogg("BUY ", "BTC", "USD", buy, newCash, price)
+	tradeLogg("BUY ", "USD", "BTC", buy, newCash, price)
 
 	NumTransactions++
 
@@ -60,15 +66,18 @@ func SellActive(price float64, stopChan chan bool) (err error) {
 		return
 	}
 
-	// sell := CashSoldTotal * float64(SoldPercent) / 100 // Dollar
-	sell := CashSoldTotal // Dollar
+	// Validate if we can sell
+	if !tryToSell(price) {
+		return
+	}
+
+	sell := CashSoldTotal // BTC
 	CashSoldTotal -= sell
 
-	newCash := sell / price // BTC
+	newCash := sell * price // USD
 	CashBuyTotal += newCash
 
-	// Logg("SELL", price)
-	tradeLogg("SELL", "USD", "BTC", sell, newCash, price)
+	tradeLogg("SELL", "BTC", "USD", sell, newCash, price)
 
 	if NumTransactions == maxTransactions {
 		Ticker.Stop()
@@ -77,6 +86,32 @@ func SellActive(price float64, stopChan chan bool) (err error) {
 	}
 
 	Bought = false
+	sellAttempts = 0
+
+	return
+}
+
+func tryToSell(sellPrice float64) (sell bool) {
+	// Verify if is sleeping period
+	if sleepTo != nil && time.Now().Before(*sleepTo) {
+		LoggInfo("Sleeping period")
+		return
+	}
+	sleepTo = nil
+
+	if sellAttempts == maxSellAttempts {
+		LoggInfo("Sold for max attempts")
+		return true
+	}
+	sellAttempts++
+
+	if boughtPrice <= sellPrice {
+		LoggInfo("Sold for good price")
+		return true
+	}
+
+	LoggInfo("Not sold for lower value, attempt: ", sellAttempts)
+	sleepTo = utils.GetTimePointer(time.Now().Add(time.Second * 10))
 
 	return
 }
@@ -89,8 +124,19 @@ func formatNumber(n float64, decimal int) float64 {
 	return n
 }
 
+func LoggInfo(msg ...any) {
+	temp := []any{model.BTCUSDT, " - "}
+	temp = append(temp, msg...)
+	temp = append(temp, " | ", time.Now().Format("02-01 15:04:05"))
+
+	out := fmt.Sprint(temp...)
+	outTransactions = append(outTransactions, out)
+
+	fmt.Println(out)
+}
+
 func Logg(kind string, price float64) {
-	out := fmt.Sprint(model.BTCUSDT, " - ", kind, " | BTC: ", formatNumber(CashBuyTotal, 8), " | DOLLAR: ", formatNumber(CashSoldTotal, 2), " | PRICE: ", price, " | RSI: ", RSI, " | ", time.Now().Format("02-01 15:04:05"))
+	out := fmt.Sprint(model.BTCUSDT, " - ", kind, " | USD: ", formatNumber(CashBuyTotal, 8), " | BTC: ", formatNumber(CashSoldTotal, 2), " | PRICE: ", price, " | RSI: ", RSI, " | ", time.Now().Format("02-01 15:04:05"))
 	outTransactions = append(outTransactions, out)
 
 	fmt.Println(out)
