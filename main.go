@@ -34,13 +34,13 @@ func main() {
 	// go socket()
 	// go binance.SocketStart()
 
-	go candle.CandleWatch()
+	candle.CandleWatch()
 
 	// Listes port 3000 for routes
-	err = app.Listen(":3000")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = app.Listen(":3000")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 }
 
 func socket() {

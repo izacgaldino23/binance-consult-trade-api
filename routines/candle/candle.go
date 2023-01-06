@@ -21,21 +21,32 @@ const (
 
 var (
 	errChan                = make(chan error, 15)
+	stop                   = make(chan bool, 1)
 	firstInteration        = true
 	output                 = make([]map[string]float64, 0)
-	RSI                    float64
+	outTransactions        = make([]string, 0)
+	Ticker                 *time.Ticker
+	RSI, lastShowRSI       float64
 	lastCandleStartTime    int64
 	preAvgGain, preAvgLoss float64
 	lastPrice              float64
 )
 
 func CandleWatch() {
-	ticker := time.NewTicker(interval)
+	Ticker = time.NewTicker(interval)
 
 	for {
 		select {
-		case <-ticker.C:
-			candleUpdate(errChan)
+		case <-stop:
+			Logg("END ", lastPrice)
+
+			fmt.Println("----------------------------")
+			fmt.Println(strings.Join(outTransactions, "\n"))
+			fmt.Println("----------------------------")
+
+			return
+		case <-Ticker.C:
+			candleUpdate(errChan, stop)
 		case err := <-errChan:
 			log.Fatal(err)
 		}
@@ -48,7 +59,7 @@ func CandleWatch() {
 // 4. Calculate the indicators
 // 5. Call trade funcs
 
-func candleUpdate(errChan chan error) {
+func candleUpdate(errChan chan error, stopChan chan bool) {
 	var (
 		result  string
 		err     error
@@ -82,6 +93,16 @@ func candleUpdate(errChan chan error) {
 
 	// Calculate the RSI indicators
 	calculateIndicatorRSI(candles)
+
+	if len(outTransactions) == 0 {
+		Logg("INIT", lastPrice)
+	}
+
+	if RSI >= 70 {
+		_ = SellActive(lastPrice, stopChan)
+	} else if RSI <= 30 {
+		_ = BuyActive(lastPrice)
+	}
 }
 
 func convertToStruct(body, symbol string) (candles []model.Candle, err error) {
@@ -208,8 +229,15 @@ func calculateIndicatorRSI(candles []model.Candle) {
 
 	//Calculate RSI
 	RSI = 100 - (100 / (1 + RS))
+	RSI = math.Ceil(100*RSI) / 100
+	if lastShowRSI == 0 {
+		lastShowRSI = RSI
+	}
 
 	// result, _ := json.Marshal(output)
 	// fmt.Println(string(result))
-	fmt.Println(model.BTCUSDT, RSI)
+	if (lastShowRSI < RSI && lastShowRSI+5 <= RSI) || (lastShowRSI > RSI && lastShowRSI-5 >= RSI) {
+		fmt.Println(model.BTCUSDT, RSI)
+		lastShowRSI = RSI
+	}
 }
