@@ -17,20 +17,33 @@ var (
 )
 
 const (
-	maxTransactions = 4
+	maxTransactions = 1
 )
 
-func BuyActive(price float64) (err error) {
+func BuyActive(price float64) bool {
 	if Bought {
-		return
+		return Bought
 	}
 
 	// Calculate how much i will expand buying
 	buy := CashBuyTotal * float64(BuyPercent) / 100 // BTC
-	CashBuyTotal -= formatNumber(buy, 8)
 
 	// Calculate how much i will receive
 	newCash := buy * price // Dollar
+
+	// Difference in cents
+	difference := newCash - formatNumber(newCash, 2)
+
+	// Remove from buy value this cents
+	buy -= difference / price
+
+	// Removing difference
+	newCash -= difference
+
+	// Withdraw from our wallet
+	CashBuyTotal -= buy
+
+	// Added newCash bought
 	CashSoldTotal += newCash
 
 	Logg("BUY ", price)
@@ -39,7 +52,7 @@ func BuyActive(price float64) (err error) {
 
 	Bought = true
 
-	return
+	return Bought
 }
 
 func SellActive(price float64, stopChan chan bool) (err error) {
@@ -53,7 +66,7 @@ func SellActive(price float64, stopChan chan bool) (err error) {
 	CashSoldTotal -= sell
 
 	newCash := sell / price // BTC
-	CashBuyTotal += formatNumber(newCash, 8)
+	CashBuyTotal += newCash
 
 	Logg("SELL", price)
 

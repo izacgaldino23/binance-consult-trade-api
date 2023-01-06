@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"strings"
 	"time"
 
@@ -20,10 +19,10 @@ const (
 )
 
 var (
-	errChan                = make(chan error, 15)
-	stop                   = make(chan bool, 1)
-	firstInteration        = true
-	output                 = make([]map[string]float64, 0)
+	errChan         = make(chan error, 15)
+	stop            = make(chan bool, 1)
+	firstInteration = true
+	// output                 = make([]map[string]float64, 0)
 	outTransactions        = make([]string, 0)
 	Ticker                 *time.Ticker
 	RSI, lastShowRSI       float64
@@ -92,17 +91,7 @@ func candleUpdate(errChan chan error, stopChan chan bool) {
 	}
 
 	// Calculate the RSI indicators
-	calculateIndicatorRSI(candles)
-
-	if len(outTransactions) == 0 {
-		Logg("INIT", lastPrice)
-	}
-
-	if RSI >= 70 {
-		_ = SellActive(lastPrice, stopChan)
-	} else if RSI <= 30 {
-		_ = BuyActive(lastPrice)
-	}
+	calculateIndicators(candles, stopChan)
 }
 
 func convertToStruct(body, symbol string) (candles []model.Candle, err error) {
@@ -157,87 +146,16 @@ func saveCandles(candles []model.Candle) (err error) {
 	return
 }
 
-func calculateIndicatorRSI(candles []model.Candle) {
-	var (
-		gains              = make(utils.Slice[float64], 0)
-		losses             = make(utils.Slice[float64], 0)
-		avgGain, avgLoss   float64
-		lastGain, lastLoss float64
-	)
+func calculateIndicators(candles []model.Candle, stopChan chan bool) {
+	utils.CalculateIndicatorRSI(candles, &lastPrice, &firstInteration, &preAvgGain, &preAvgLoss, &lastShowRSI, &RSI)
 
-	// Get prices and gains and losses
-	for i := range candles {
-		price := &candles[i].ClosePrice
-
-		output = append(output, make(map[string]float64))
-
-		if lastPrice != 0 {
-			difference := math.Ceil((*price-lastPrice)*100) / 100
-
-			if difference > 0 {
-				lastGain = difference
-				gains = append(gains, lastGain)
-
-				lastLoss = 0
-				losses = append(losses, 0)
-			} else {
-				lastLoss = math.Abs(difference)
-				losses = append(losses, lastLoss)
-
-				lastGain = 0
-				gains = append(gains, 0)
-			}
-		}
-
-		lastPrice = *price
-
-		output[len(output)-1]["price"] = *price
-		output[len(output)-1]["gain"] = lastGain
-		output[len(output)-1]["loss"] = lastLoss
-		output[len(output)-1]["avg_gain"] = 0
-		output[len(output)-1]["avg_loss"] = 0
+	if len(outTransactions) == 0 {
+		Logg("INIT", lastPrice)
 	}
 
-	if firstInteration {
-		// Calculate avg for gains and losses
-		gains.Each(func(i int, v *float64) {
-			avgGain += *v
-		})
-
-		losses.Each(func(i int, v *float64) {
-			avgLoss += *v
-		})
-
-		avgGain = avgGain / candleLimit
-		avgLoss = avgLoss / candleLimit
-
-		firstInteration = false
-	} else {
-		avgGain = (preAvgGain*(candleLimit-1) + lastGain) / candleLimit
-		avgLoss = (preAvgLoss*(candleLimit-1) + lastLoss) / candleLimit
-	}
-
-	output[len(output)-1]["avgGain"] = avgGain
-	output[len(output)-1]["avgLoss"] = avgLoss
-
-	// Set to preview avg
-	preAvgGain = avgGain
-	preAvgLoss = avgLoss
-
-	// Calculate RS
-	RS := avgGain / avgLoss
-
-	//Calculate RSI
-	RSI = 100 - (100 / (1 + RS))
-	RSI = math.Ceil(100*RSI) / 100
-	if lastShowRSI == 0 {
-		lastShowRSI = RSI
-	}
-
-	// result, _ := json.Marshal(output)
-	// fmt.Println(string(result))
-	if (lastShowRSI < RSI && lastShowRSI+5 <= RSI) || (lastShowRSI > RSI && lastShowRSI-5 >= RSI) {
-		fmt.Println(model.BTCUSDT, RSI)
-		lastShowRSI = RSI
+	if RSI >= 70 {
+		_ = SellActive(lastPrice, stopChan)
+	} else if RSI <= 30 {
+		_ = BuyActive(lastPrice)
 	}
 }
