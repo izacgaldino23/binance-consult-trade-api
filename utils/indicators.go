@@ -62,11 +62,11 @@ func CalculateIndicatorRSI(
 
 	if *firstInteration {
 		// Calculate avg for gains and losses
-		gains.Each(func(i int, v *float64) {
+		gains.Map(func(i int, v *float64) {
 			avgGain += *v
 		})
 
-		losses.Each(func(i int, v *float64) {
+		losses.Map(func(i int, v *float64) {
 			avgLoss += *v
 		})
 

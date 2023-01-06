@@ -2,7 +2,7 @@ package utils
 
 type Slice[T any] []T
 
-func (l *Slice[T]) Each(callback func(i int, v *T)) {
+func (l *Slice[T]) Map(callback func(i int, v *T)) {
 	for index := range *l {
 		callback(index, &(*l)[index])
 	}

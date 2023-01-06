@@ -23,7 +23,7 @@ func TestSlice(t *testing.T) {
 		temp = append(temp, value2)
 		temp = append(temp, value3)
 
-		temp.Each(func(i int, v *int) {
+		temp.Map(func(i int, v *int) {
 			total += *v
 		})
 
