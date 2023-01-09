@@ -3,9 +3,12 @@ package candle
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
+	"github.com/izacgaldino23/binance-consult-trade-api/config"
 	"github.com/izacgaldino23/binance-consult-trade-api/model"
+	"github.com/izacgaldino23/binance-consult-trade-api/persist"
 	"github.com/izacgaldino23/binance-consult-trade-api/utils"
 )
 
@@ -21,13 +24,13 @@ var (
 )
 
 const (
-	maxTransactions = 10
+	maxTransactions = 1
 	maxSellAttempts = 3
 )
 
-func BuyActive(price float64) bool {
+func BuyActive(price float64) (bool, error) {
 	if Bought {
-		return Bought
+		return Bought, nil
 	}
 
 	// Calculate how much i will expand buying
@@ -53,11 +56,23 @@ func BuyActive(price float64) bool {
 	// Logg("BUY ", price)
 	tradeLogg("BUY ", "USD", "BTC", buy, newCash, price)
 
-	NumTransactions++
-
 	Bought = true
 
-	return Bought
+	if err := SaveTrade(&model.Trade{
+		Type:      model.TradeTypeBuy,
+		FromName:  "USD",
+		ToName:    "BTC",
+		FromValue: buy,
+		ToValue:   newCash,
+		Price:     price,
+		RSI:       RSI,
+	}); err != nil {
+		return Bought, err
+	}
+
+	NumTransactions++
+
+	return Bought, nil
 }
 
 func SellActive(price float64, stopChan chan bool) (err error) {
@@ -82,11 +97,22 @@ func SellActive(price float64, stopChan chan bool) (err error) {
 	if NumTransactions == maxTransactions {
 		Ticker.Stop()
 		stopChan <- true
-		return
 	}
 
 	Bought = false
 	sellAttempts = 0
+
+	if err = SaveTrade(&model.Trade{
+		Type:      model.TradeTypeSell,
+		FromName:  "BTC",
+		ToName:    "USD",
+		FromValue: sell,
+		ToValue:   newCash,
+		Price:     price,
+		RSI:       RSI,
+	}); err != nil {
+		return
+	}
 
 	return
 }
@@ -148,4 +174,48 @@ func tradeLogg(kind, expendType, boughtType string, expendValue, boughtValue, pr
 	outTransactions = append(outTransactions, out)
 
 	fmt.Println(out)
+}
+
+func InitOrEndTransactions(price *float64, init bool) (err error) {
+	text := model.TradeTypeInit
+
+	if !init {
+		text = model.TradeTypeEnd
+	}
+
+	Logg(strings.ToUpper(text), lastPrice)
+
+	if err = SaveTrade(&model.Trade{
+		Type:      text,
+		FromName:  "USD",
+		ToName:    "BTC",
+		FromValue: CashBuyTotal,
+		ToValue:   CashSoldTotal,
+		Price:     *price,
+		RSI:       RSI,
+	}); err != nil {
+		return
+	}
+
+	return
+}
+
+func SaveTrade(trade *model.Trade) (err error) {
+	tx, err := config.NewTransaction(false)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+
+	persistTrade := persist.TradePS{TX: tx}
+
+	if _, err = persistTrade.AddTrade(trade); err != nil {
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
+	return
 }

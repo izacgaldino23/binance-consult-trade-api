@@ -37,7 +37,7 @@ func CandleWatch() {
 	for {
 		select {
 		case <-stop:
-			Logg("END ", lastPrice)
+			errChan <- InitOrEndTransactions(&lastPrice, false)
 
 			fmt.Println("----------------------------")
 			fmt.Println(strings.Join(outTransactions, "\n"))
@@ -91,7 +91,10 @@ func candleUpdate(errChan chan error, stopChan chan bool) {
 	}
 
 	// Calculate the RSI indicators
-	calculateIndicators(candles, stopChan)
+	if err = calculateIndicators(candles, stopChan); err != nil {
+		errChan <- err
+		return
+	}
 }
 
 func convertToStruct(body, symbol string) (candles []model.Candle, err error) {
@@ -146,16 +149,20 @@ func saveCandles(candles []model.Candle) (err error) {
 	return
 }
 
-func calculateIndicators(candles []model.Candle, stopChan chan bool) {
+func calculateIndicators(candles []model.Candle, stopChan chan bool) (err error) {
 	utils.CalculateIndicatorRSI(candles, &lastPrice, &firstInteration, &preAvgGain, &preAvgLoss, &lastShowRSI, &RSI)
 
 	if len(outTransactions) == 0 {
-		Logg("INIT", lastPrice)
+		if err = InitOrEndTransactions(&lastPrice, true); err != nil {
+			return
+		}
 	}
 
 	if RSI >= 70 {
-		_ = SellActive(lastPrice, stopChan)
+		err = SellActive(lastPrice, stopChan)
 	} else if RSI <= 30 {
-		_ = BuyActive(lastPrice)
+		_, err = BuyActive(lastPrice)
 	}
+
+	return
 }
