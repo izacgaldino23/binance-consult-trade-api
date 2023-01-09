@@ -28,7 +28,7 @@ const (
 	maxSellAttempts = 3
 )
 
-func BuyActive(price float64) (bool, error) {
+func BuyActive(price float64, processID *int64) (bool, error) {
 	if Bought {
 		return Bought, nil
 	}
@@ -66,6 +66,7 @@ func BuyActive(price float64) (bool, error) {
 		ToValue:   newCash,
 		Price:     price,
 		RSI:       RSI,
+		ProcessID: *processID,
 	}); err != nil {
 		return Bought, err
 	}
@@ -75,7 +76,7 @@ func BuyActive(price float64) (bool, error) {
 	return Bought, nil
 }
 
-func SellActive(price float64, stopChan chan bool) (err error) {
+func SellActive(price float64, processID *int64, stopChan chan bool) (err error) {
 	// validate if i have anything to sell
 	if CashSoldTotal == 0 {
 		return
@@ -104,6 +105,7 @@ func SellActive(price float64, stopChan chan bool) (err error) {
 
 	if err = SaveTrade(&model.Trade{
 		Type:      model.TradeTypeSell,
+		ProcessID: *processID,
 		FromName:  "BTC",
 		ToName:    "USD",
 		FromValue: sell,
@@ -176,24 +178,50 @@ func tradeLogg(kind, expendType, boughtType string, expendValue, boughtValue, pr
 	fmt.Println(out)
 }
 
-func InitOrEndTransactions(price *float64, init bool) (err error) {
-	text := model.TradeTypeInit
+func InitTransactions(price *float64, symbol *string) (processID int64, err error) {
+	Logg(strings.ToUpper(model.TradeTypeInit), lastPrice)
 
-	if !init {
-		text = model.TradeTypeEnd
+	tx, err := config.NewTransaction(false)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+
+	persistTrade := persist.TradePS{TX: tx}
+
+	if processID, err = persistTrade.AddProcess(&model.Process{
+		Symbol:     *symbol,
+		FromName:   "USD",
+		ToName:     "BTC",
+		StartValue: CashBuyTotal,
+		StartPrice: *price,
+	}); err != nil {
+		return
 	}
 
-	Logg(strings.ToUpper(text), lastPrice)
+	if err = tx.Commit(); err != nil {
+		return
+	}
 
-	if err = SaveTrade(&model.Trade{
-		Type:      text,
-		FromName:  "USD",
-		ToName:    "BTC",
-		FromValue: CashBuyTotal,
-		ToValue:   CashSoldTotal,
-		Price:     *price,
-		RSI:       RSI,
-	}); err != nil {
+	return
+}
+
+func EndTransactions(price *float64, processID *int64) (err error) {
+	Logg(strings.ToUpper(model.TradeTypeEnd), lastPrice)
+
+	tx, err := config.NewTransaction(false)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+
+	persistTrade := persist.TradePS{TX: tx}
+
+	if err = persistTrade.EndProcess(*processID, *price); err != nil {
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
 		return
 	}
 

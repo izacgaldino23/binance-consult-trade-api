@@ -19,16 +19,16 @@ const (
 )
 
 var (
-	errChan         = make(chan error, 15)
-	stop            = make(chan bool, 1)
-	firstInteration = true
-	// output                 = make([]map[string]float64, 0)
-	outTransactions        = make([]string, 0)
-	Ticker                 *time.Ticker
-	RSI, lastShowRSI       float64
-	lastCandleStartTime    int64
-	preAvgGain, preAvgLoss float64
-	lastPrice              float64
+	errChan                        = make(chan error, 15)
+	stop                           = make(chan bool, 1)
+	firstInteration                = true
+	symbol                         = model.BTCUSDT
+	outTransactions                = make([]string, 0)
+	Ticker                         *time.Ticker
+	RSI, lastShowRSI               float64
+	lastCandleStartTime, processID int64
+	preAvgGain, preAvgLoss         float64
+	lastPrice                      float64
 )
 
 func CandleWatch() {
@@ -37,7 +37,7 @@ func CandleWatch() {
 	for {
 		select {
 		case <-stop:
-			errChan <- InitOrEndTransactions(&lastPrice, false)
+			errChan <- EndTransactions(&lastPrice, &processID)
 
 			fmt.Println("----------------------------")
 			fmt.Println(strings.Join(outTransactions, "\n"))
@@ -63,7 +63,6 @@ func candleUpdate(errChan chan error, stopChan chan bool) {
 		result  string
 		err     error
 		candles []model.Candle
-		symbol  = model.BTCUSDT
 	)
 
 	// Get candles from binance
@@ -74,7 +73,6 @@ func candleUpdate(errChan chan error, stopChan chan bool) {
 	}
 
 	if result == "[]" {
-		// fmt.Println("No new candles to add")
 		return
 	}
 
@@ -153,15 +151,15 @@ func calculateIndicators(candles []model.Candle, stopChan chan bool) (err error)
 	utils.CalculateIndicatorRSI(candles, &lastPrice, &firstInteration, &preAvgGain, &preAvgLoss, &lastShowRSI, &RSI)
 
 	if len(outTransactions) == 0 {
-		if err = InitOrEndTransactions(&lastPrice, true); err != nil {
+		if processID, err = InitTransactions(&lastPrice, &symbol); err != nil {
 			return
 		}
 	}
 
 	if RSI >= 70 {
-		err = SellActive(lastPrice, stopChan)
+		err = SellActive(lastPrice, &processID, stopChan)
 	} else if RSI <= 30 {
-		_, err = BuyActive(lastPrice)
+		_, err = BuyActive(lastPrice, &processID)
 	}
 
 	return
