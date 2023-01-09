@@ -37,7 +37,7 @@ func CandleWatch() {
 	for {
 		select {
 		case <-stop:
-			errChan <- EndTransactions(&lastPrice, &processID)
+			errChan <- EndTransactions(&processID)
 
 			fmt.Println("----------------------------")
 			fmt.Println(strings.Join(outTransactions, "\n"))

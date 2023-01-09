@@ -206,7 +206,7 @@ func InitTransactions(price *float64, symbol *string) (processID int64, err erro
 	return
 }
 
-func EndTransactions(price *float64, processID *int64) (err error) {
+func EndTransactions(processID *int64) (err error) {
 	Logg(strings.ToUpper(model.TradeTypeEnd), lastPrice)
 
 	tx, err := config.NewTransaction(false)
@@ -217,7 +217,7 @@ func EndTransactions(price *float64, processID *int64) (err error) {
 
 	persistTrade := persist.TradePS{TX: tx}
 
-	if err = persistTrade.EndProcess(*processID, *price); err != nil {
+	if err = persistTrade.EndProcess(*processID, CashBuyTotal); err != nil {
 		return
 	}
 
